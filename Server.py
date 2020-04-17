@@ -88,8 +88,9 @@ def check_client_confirmation(client_socket, name, client_messages):
     hash_ascii = hash_ascii[:-2]
 
     # Если хэш не число
-    if not hash_ascii.isdigit():
+    if not hash_ascii.isdigit() or len(hash_ascii) > 5:
         return 'SYNTAX ERROR', client_messages
+
 
     hash = int(hash_ascii)
     client_messages.remove(client_messages[0])
@@ -156,8 +157,16 @@ def auntification(client_socket, client_messages):
 
 def get_coordinates(data):
     messege = data.split(' ')
+    if len(messege) != 3:
+        return 0, 0, 'SYNTAX_ERROR'
+    ok_ascii = str(messege[0])
+    x_ascii = str(messege[1])
+    y_ascii = str(messege[2])
+
+    if ok_ascii != 'OK' or not x_ascii.isdigit() or not y_ascii.isdigit():
+        return 0, 0, True
     x, y = list(map(int, messege[1:3]))
-    return x, y
+    return x, y, False
 
 
 def get_direction(x1, y1, x2, y2):
@@ -275,7 +284,12 @@ def find_message(robot, client_socket, client_messages):
         client_messages.remove(client_messages[0])
 
         # Где я сейчас
-        robot.x, robot.y = get_coordinates(data)
+        robot.x, robot.y, syntax_error = get_coordinates(data)
+
+        # Если что то не так с координатами
+        if syntax_error:
+            client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
+            return
 
         # В каком направление двигаться
         dest_direction = get_dest_direction(robot.x, robot.y, x_dest, y_dest)
@@ -288,6 +302,7 @@ def find_message(robot, client_socket, client_messages):
 
             while '\a\b' not in client_messages[0]:
                 client_messages = my_recv(client_socket, client_messages)
+
             data = client_messages[0]
             data = data[:-2]
             client_messages.remove(client_messages[0])
@@ -311,7 +326,12 @@ def movement_of_robot(client_socket, client_messages):
     data = data[:-2]
     client_messages.remove(client_messages[0])
 
-    x0, y0 = get_coordinates(data)
+    x0, y0, syntax_error = get_coordinates(data)
+
+    # Если что то не так с координатами
+    if syntax_error:
+        client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
+        return
 
     # Second step
     client_socket.send(messeges['SERVER_MOVE'])
@@ -327,9 +347,14 @@ def movement_of_robot(client_socket, client_messages):
     data = data[:-2]
     client_messages.remove(client_messages[0])
 
-    x1, y1 = get_coordinates(data)
+    x1, y1, syntax_error = get_coordinates(data)
 
-    # Start direction
+    # Если что то не так с координатами
+    if syntax_error:
+        client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
+        return
+
+        # Start direction
     direction = get_direction(x0, y0, x1, y1)
 
     # If robot already in base
@@ -362,15 +387,21 @@ def movement_of_robot(client_socket, client_messages):
         client_messages.remove(client_messages[0])
 
         # Где я сейчас
-        robot.x, robot.y = get_coordinates(data)
-        # Куда я должен идти
+        robot.x, robot.y, syntax_error = get_coordinates(data)
+
+        # Если что то не так с координатами
+        if syntax_error:
+            client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
+            return
+
+            # Куда я должен идти
         dest_direction = get_dest_direction(robot.x, robot.y, x_dest, y_dest)
     print('I AM HERE')
     find_message(robot, client_socket, client_messages)
 
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.bind(('localhost', 9978))
+server_socket.bind(('localhost', 9976))
 server_socket.listen(1)
 
 while True:
