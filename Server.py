@@ -45,8 +45,16 @@ messeges = {
 
 def my_recv(client_socket, client_messages):
     data = ''
+    message = ''
     while True:
-        message = client_socket.recv(100)
+        client_socket.settimeout(TIMEOUT)
+        try:
+            message = client_socket.recv(100)
+        except socket.timeout:
+            client_socket.close()
+            return client_messages, True
+        client_socket.settimeout(None)
+        #message = client_socket.recv(100)
         data += message.decode('ascii')
 
         if '\a\b' in data:
@@ -64,7 +72,7 @@ def my_recv(client_socket, client_messages):
     # Добавляю сообщение если осталось какое-то без \a\b
     if data != '':
         client_messages.append(data)
-    return client_messages
+    return client_messages, False
 
 
 class Robot:
@@ -78,10 +86,14 @@ def check_client_confirmation(client_socket, name, client_messages):
     # Получаю от клиента хэш вместе с КЛИЕНТ_КЛЮЧ
     hash = 0
     if len(client_messages) == 0:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return 'TIMEOUT', client_messages
 
     while '\a\b' not in client_messages[0]:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return 'TIMEOUT', client_messages
 
 
     hash_ascii = client_messages[0]
@@ -117,16 +129,20 @@ def name_to_hash(name):
 def auntification(client_socket, client_messages):
     # Получаю имя робота
     if len(client_messages) == 0:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return False, client_messages, True
 
     while '\a\b' not in client_messages[0]:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return False, client_messages, True
 
     name = client_messages[0]
     name = name[:-2] # Удаляю \a\b в конце
     if len(name) > 10:
         client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
-        return False, client_messages
+        return False, client_messages, False
 
     # Удаляю сообщение из списка
     client_messages.remove(client_messages[0])
@@ -144,15 +160,17 @@ def auntification(client_socket, client_messages):
     if compare_client_hash == 'OK':  # Сравниваю хэш клиента и тот что считает моей сервер
         if errors is True:
             client_socket.send(messeges['SERVER_LOGIN_FAILED'])
-            return False, client_messages
+            return False, client_messages, False
         client_socket.send(messeges['SERVER_OK'])
-        return True, client_messages
+        return True, client_messages, False
     elif compare_client_hash == 'NOT EQUAL':
         client_socket.send(messeges['SERVER_LOGIN_FAILED'])
-        return False, client_messages
+        return False, client_messages, False
+    elif compare_client_hash == 'TIMEOUT':
+        return False, client_messages, True
     else:  # Если хэщ клиента который прислал пользователь не верен, например состоит не только из цифр
         client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
-        return False, client_messages
+        return False, client_messages, False
 
 
 def get_coordinates(data):
@@ -244,10 +262,14 @@ def find_message(robot, client_socket, client_messages):
 
     # Получение информации
     if len(client_messages) == 0:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return True
 
     while '\a\b' not in client_messages[0]:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return True
 
     data = client_messages[0]
     data = data[:-2]
@@ -255,7 +277,7 @@ def find_message(robot, client_socket, client_messages):
 
     if len(data) > 0:
         client_socket.sendall(messeges['SERVER_LOGOUT'])
-        return
+        return False
     # Coordinates where robot need to go
     x_dest, y_dest = find_nearest_coordinates(robot)
     dest_direction = get_dest_direction(robot.x, robot.y, x_dest, y_dest)
@@ -274,10 +296,14 @@ def find_message(robot, client_socket, client_messages):
 
         # Получение информации
         if len(client_messages) == 0:
-            client_messages = my_recv(client_socket, client_messages)
+            client_messages, timeout = my_recv(client_socket, client_messages)
+            if timeout:
+                return True
 
         while '\a\b' not in client_messages[0]:
-            client_messages = my_recv(client_socket, client_messages)
+            client_messages, timeout = my_recv(client_socket, client_messages)
+            if timeout:
+                return True
 
         data = client_messages[0]
         data = data[:-2]
@@ -289,7 +315,7 @@ def find_message(robot, client_socket, client_messages):
         # Если что то не так с координатами
         if syntax_error:
             client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
-            return
+            return False
 
         # В каком направление двигаться
         dest_direction = get_dest_direction(robot.x, robot.y, x_dest, y_dest)
@@ -298,16 +324,21 @@ def find_message(robot, client_socket, client_messages):
         if dest_direction == 'EQUAL':
             # Получение информации
             if len(client_messages) == 0:
-                client_messages = my_recv(client_socket, client_messages)
+                client_messages, timeout = my_recv(client_socket, client_messages)
+                if timeout:
+                    return True
 
             while '\a\b' not in client_messages[0]:
-                client_messages = my_recv(client_socket, client_messages)
+                client_messages, timeout = my_recv(client_socket, client_messages)
+                if timeout:
+                    return True
 
             data = client_messages[0]
             data = data[:-2]
             client_messages.remove(client_messages[0])
 
     client_socket.sendall(messeges['SERVER_LOGOUT'])
+    return False
 
 
 def movement_of_robot(client_socket, client_messages):
@@ -317,10 +348,14 @@ def movement_of_robot(client_socket, client_messages):
 
     # Получение информации
     if len(client_messages) == 0:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return True
 
     while '\a\b' not in client_messages[0]:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return True
 
     data = client_messages[0]
     data = data[:-2]
@@ -331,17 +366,22 @@ def movement_of_robot(client_socket, client_messages):
     # Если что то не так с координатами
     if syntax_error:
         client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
-        return
+        return False
 
     # Second step
     client_socket.send(messeges['SERVER_MOVE'])
 
     # Получение информации
     if len(client_messages) == 0:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return True
 
     while '\a\b' not in client_messages[0]:
-        client_messages = my_recv(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+        if timeout:
+            return True
+
 
     data = client_messages[0]
     data = data[:-2]
@@ -352,7 +392,7 @@ def movement_of_robot(client_socket, client_messages):
     # Если что то не так с координатами
     if syntax_error:
         client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
-        return
+        return False
 
         # Start direction
     direction = get_direction(x0, y0, x1, y1)
@@ -360,8 +400,11 @@ def movement_of_robot(client_socket, client_messages):
     # If robot already in base
     if (x1, y1) in coordinates_base:
         robot = Robot(x1, y1, direction)
-        find_message(robot, client_socket, client_messages)
-        return
+        timeout = find_message(robot, client_socket, client_messages)
+        if timeout:
+            return True
+        else:
+            return False
 
     # dest = destination
     x_dest, y_dest = get_dest_coordinates(x1, y1)
@@ -377,10 +420,16 @@ def movement_of_robot(client_socket, client_messages):
 
         # Получение информации
         if len(client_messages) == 0:
-            client_messages = my_recv(client_socket, client_messages)
+            client_messages, timeout = my_recv(client_socket, client_messages)
+            if timeout:
+                return True
+
 
         while '\a\b' not in client_messages[0]:
-            client_messages = my_recv(client_socket, client_messages)
+            client_messages, timeout = my_recv(client_socket, client_messages)
+            if timeout:
+                return True
+
 
         data = client_messages[0]
         data = data[:-2]
@@ -392,16 +441,20 @@ def movement_of_robot(client_socket, client_messages):
         # Если что то не так с координатами
         if syntax_error:
             client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
-            return
+            return False
 
             # Куда я должен идти
         dest_direction = get_dest_direction(robot.x, robot.y, x_dest, y_dest)
     print('I AM HERE')
-    find_message(robot, client_socket, client_messages)
+    timeout = find_message(robot, client_socket, client_messages)
+    if timeout:
+        return True
+    else:
+        return False
 
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.bind(('localhost', 9976))
+server_socket.bind(('localhost', 9969))
 server_socket.listen(1)
 
 while True:
@@ -412,12 +465,27 @@ while True:
         # Пока клиент не отключился, читаем передаваемые
         # им данные и отправляем их обратно
         client_messages = []
-        client_messages = my_recv(client_socket, client_messages)
-        aunt_good, client_messages = auntification(client_socket, client_messages)
+        client_messages, timeout = my_recv(client_socket, client_messages)
+
+        # Проверка чтоб если приняли мы сообщение за 1 секунду
+        if timeout:
+            break
+
+        aunt_good, client_messages, timeout = auntification(client_socket, client_messages)
+
+        # Проверка чтоб если приняли мы сообщение за 1 секунду
+        if timeout:
+            break
+
         if not aunt_good:
             client_socket.close()  # Если LOGIN FAILED
             break
-        movement_of_robot(client_socket, client_messages)
+
+        timeout = movement_of_robot(client_socket, client_messages)
+
+        # Проверка чтоб если приняли мы сообщение за 1 секунду
+        if timeout:
+            break
 
         client_socket.close()  # КОНЕЦ
         break
