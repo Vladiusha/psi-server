@@ -417,6 +417,33 @@ def movement_of_robot(client_socket, client_messages):
         client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
         return False
 
+    # Если робот после приказа MOVE не пошивилился
+    while x0 == x1 and y0 == y1:
+        client_socket.send(messeges['SERVER_MOVE'])
+
+        # Получение информации
+        if len(client_messages) == 0:
+            client_messages, timeout = my_recv(client_socket, client_messages, 'MOVE')
+            if timeout:
+                return True
+
+        while '\a\b' not in client_messages[0]:
+            client_messages, timeout = my_recv(client_socket, client_messages, 'MOVE')
+            if timeout:
+                return True
+
+        data = client_messages[0]
+        data = data[:-2]
+        client_messages.remove(client_messages[0])
+
+        x1, y1, syntax_error = get_coordinates(data)
+
+        # Если что то не так с координатами
+        if syntax_error:
+            client_socket.send(messeges['SERVER_SYNTAX_ERROR'])
+            return False
+
+
         # Start direction
     direction = get_direction(x0, y0, x1, y1)
 
@@ -475,7 +502,7 @@ def movement_of_robot(client_socket, client_messages):
 
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.bind(('localhost', 9959))
+server_socket.bind(('localhost', 9958))
 server_socket.listen(1)
 
 while True:
