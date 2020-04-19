@@ -279,17 +279,30 @@ def get_direction(x1, y1, x2, y2):
 
 
 def get_dest_direction(x1, y1, x2, y2):
-    if x1 < x2:
-        return 'RIGHT'
-    elif x1 > x2:
-        return 'LEFT'
-    else:
-        if y1 > y2:
-            return 'BOTTOM'
-        elif y1 < y2:
-            return 'UP'
+    if x1 == -2 and y1 == 11:
+        if x1 < x2:
+            return 'RIGHT'
+        elif x1 > x2:
+            return 'LEFT'
         else:
-            return 'EQUAL'
+            if y1 > y2:
+                return 'BOTTOM'
+            elif y1 < y2:
+                return 'UP'
+            else:
+                return 'EQUAL'
+    else:
+        if x1 < x2:
+            return 'RIGHT'
+        elif x1 > x2:
+            return 'LEFT'
+        else:
+            if y1 > y2:
+                return 'BOTTOM'
+            elif y1 < y2:
+                return 'UP'
+            else:
+                return 'EQUAL'
 
 
 def get_dest_coordinates(x, y):
@@ -396,12 +409,13 @@ def find_message(robot, client_socket, client_messages):
             data = client_messages[0]
             data = data[:-2]
 
-            if data != 'FULL POWER\a\b':
+            if data != 'FULL POWER':
                 return True
             else:
                 client_messages.remove(client_messages[0])
                 data = client_messages[0]
                 data = data[:-2]
+                client_messages.remove(client_messages[0])
 
 
         # Где я сейчас
@@ -459,7 +473,7 @@ def movement_of_robot(client_socket, client_messages):
 
     data = client_messages[0]
     data = data[:-2]
-
+    client_messages.remove(client_messages[0])
     print('Line 464: ')
     print(client_messages)
 
@@ -478,14 +492,14 @@ def movement_of_robot(client_socket, client_messages):
         data = client_messages[0]
         data = data[:-2]
 
-        if data != 'FULL POWER\a\b':
+        if data != 'FULL POWER':
             return True
         else:
             client_messages.remove(client_messages[0])
             data = client_messages[0]
             data = data[:-2]
+            client_messages.remove(client_messages[0])
 
-    client_messages.remove(client_messages[0])
 
     x0, y0, syntax_error = get_coordinates(data)
 
@@ -533,12 +547,13 @@ def movement_of_robot(client_socket, client_messages):
         data = client_messages[0]
         data = data[:-2]
 
-        if data != 'FULL POWER\a\b':
+        if data != 'FULL POWER':
             return True
         else:
             client_messages.remove(client_messages[0])
             data = client_messages[0]
             data = data[:-2]
+            client_messages.remove(client_messages[0])
 
     x1, y1, syntax_error = get_coordinates(data)
 
@@ -584,12 +599,13 @@ def movement_of_robot(client_socket, client_messages):
             data = client_messages[0]
             data = data[:-2]
 
-            if data != 'FULL POWER\a\b':
+            if data != 'FULL POWER':
                 return True
             else:
                 client_messages.remove(client_messages[0])
                 data = client_messages[0]
                 data = data[:-2]
+                client_messages.remove(client_messages[0])
 
         x1, y1, syntax_error = get_coordinates(data)
 
@@ -613,6 +629,10 @@ def movement_of_robot(client_socket, client_messages):
 
     # dest = destination
     x_dest, y_dest = get_dest_coordinates(x1, y1)
+
+    print('WHERE I MUST TO GO')
+    print(x_dest)
+    print(y_dest)
 
     # Куда я должен идти
     dest_direction = get_dest_direction(x1, y1, x_dest, y_dest)
@@ -638,6 +658,9 @@ def movement_of_robot(client_socket, client_messages):
         data = data[:-2]
         client_messages.remove(client_messages[0])
 
+        print('Line: 641')
+        print(client_messages)
+
         if data == 'RECHARGING':
             # Получение информации
             if len(client_messages) == 0:
@@ -650,15 +673,24 @@ def movement_of_robot(client_socket, client_messages):
                 if timeout:
                     return True
 
+            print('Line: 653')
+            print(client_messages)
+
             data = client_messages[0]
             data = data[:-2]
 
-            if data != 'FULL POWER\a\b':
+            print('Line: 662')
+            print(data)
+
+            if data != 'FULL POWER':
                 return True
             else:
                 client_messages.remove(client_messages[0])
                 data = client_messages[0]
                 data = data[:-2]
+                client_messages.remove(client_messages[0])
+                print('Line: 662')
+                print(client_messages)
 
 
         # Где я сейчас
@@ -680,7 +712,7 @@ def movement_of_robot(client_socket, client_messages):
 
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.bind(('localhost', 9951))
+server_socket.bind(('localhost', 9948))
 server_socket.listen(1)
 
 while True:
