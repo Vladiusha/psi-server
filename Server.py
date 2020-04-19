@@ -61,14 +61,16 @@ def my_recv(client_socket, client_messages, to_do, rechargin):  # to_do это �
             client_socket.settimeout(TIMEOUT)
         try:
             message = client_socket.recv(100)
-
             if rechargin == 'RECHARGING' and 'FULL POWER' not in message.decode('ascii'):
-                return client_messages, True
+                client_socket.sendall(messeges['SERVER_LOGIC_ERROR'])
+                raise socket.timeout
         except socket.timeout:
             client_socket.close()
             return client_messages, True
+
         client_socket.settimeout(None)
         data += message.decode('ascii')
+
         # Когда ожидаем имя при аунтификации
         if to_do == 'AUNT' and '\a\b' not in data and len(
                 data) >= 12:  # Больше равно 12 потому чтот максимальная длина 12 , тоесть 12 может быть но в этой ситуации не может быть 12 так как нету \a\b значит прибавиться минимум еще один символ
@@ -712,7 +714,7 @@ def movement_of_robot(client_socket, client_messages):
 
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.bind(('localhost', 9948))
+server_socket.bind(('localhost', 9945))
 server_socket.listen(1)
 
 while True:
