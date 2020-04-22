@@ -215,7 +215,6 @@ def auntification(client_socket, client_messages):
         if timeout:
             return False, client_messages, True
 
-    print(client_messages)
 
     name = client_messages[0]
     name = name[:-2]  # Удаляю \a\b в конце
